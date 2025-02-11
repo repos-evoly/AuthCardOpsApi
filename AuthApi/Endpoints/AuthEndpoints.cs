@@ -139,7 +139,7 @@ namespace AuthApi.Endpoints
             return TypedResults.Ok(new
             {
                 SecretKey = base32Secret,
-                QrCodePath = $"/api/auth/attachments/{qrCodeFileName}"
+                QrCodePath = $"/attachments/{qrCodeFileName}"
             });
         }
 
@@ -217,7 +217,7 @@ namespace AuthApi.Endpoints
                 new Claim(ClaimTypes.Name, user.FullNameAR),
                 new Claim(ClaimTypes.GivenName, user.FullNameLT),
                 new Claim(ClaimTypes.Uri, user.Image ?? ""),
-                new Claim(ClaimTypes.Role, user.Role.TitleLT),
+                new Claim(ClaimTypes.Role, user.Role?.TitleLT ?? "Unassigned"),
                 new Claim(ClaimTypes.GroupSid, user.BranchId ?? ""),
                 new Claim(ClaimTypes.Sid, user.Id.ToString())
             };
