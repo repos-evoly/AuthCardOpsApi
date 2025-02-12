@@ -58,6 +58,7 @@ namespace AuthApi.Endpoints
 
 
         /// <summary> Login with JWT </summary>
+        /// Ask Mr ismat about Login and 2fa logic cases like if settings table has 2fa off but user has enabled 2fa will it ask him?? if settings has 2fa on it should force all users to enable 2fa? 
         public static async Task<IResult> Login( AuthApiDbContext db,  IConfiguration config, HttpContext httpContext,  LoginDto loginDto)
         {
             var jwtSection = config.GetSection("Jwt");
@@ -81,7 +82,7 @@ namespace AuthApi.Endpoints
 
             var token = GenerateJwtToken(user, config);
 
-            //as mr ismat if what is inder this is needed
+            //as mr ismat if what is under this is needed
             httpContext.Response.Cookies.Append("authToken", token, new CookieOptions
             {
                 Expires = DateTime.UtcNow.AddDays(7),
