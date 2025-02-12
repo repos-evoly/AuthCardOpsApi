@@ -173,7 +173,7 @@ namespace AuthApi.Endpoints
             if (user == null) return TypedResults.NotFound("User not found.");
 
             user.UserSecurity ??= new UserSecurity { UserId = user.Id };
-            user.UserSecurity.PasswordResetToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(64));
+            user.UserSecurity.PasswordResetToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(4));
             user.UserSecurity.PasswordResetTokenExpiry = DateTime.UtcNow.AddMinutes(30);
 
             await db.SaveChangesAsync();

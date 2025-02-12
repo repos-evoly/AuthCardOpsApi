@@ -152,6 +152,7 @@ namespace AuthApi.Core.Startup
       // validates Team, JobTitle and Ref1
      
       validators.AddScoped<IValidator<EditCustomerDto>, CustomerValidator>();
+      
      
 
       return validators;
@@ -160,8 +161,9 @@ namespace AuthApi.Core.Startup
     public static IServiceCollection RegisterRepos(this IServiceCollection services)
     {
       services.AddEndpointsApiExplorer();
-     
+      services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
       services.AddScoped<IQrCodeRepository, QrCodeRepository>();
+      services.AddTransient<IUnitOfWork, UnitOfWork>();
 
       return services;
     }
