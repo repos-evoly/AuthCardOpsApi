@@ -20,20 +20,6 @@ namespace AuthApi
         }
    
 
-    private static void MapNullableFloats(Customer source, CustomerDto destination)
-    {
-      var floatProperties = typeof(CustomerDto).GetProperties()
-          .Where(p => p.PropertyType == typeof(float?) && p.GetSetMethod() != null);
-
-      foreach (var property in floatProperties)
-      {
-        var sourceProperty = source.GetType().GetProperty(property.Name);
-        if (sourceProperty != null)
-        {
-          var sourceValue = (float?)sourceProperty.GetValue(source);
-          property.SetValue(destination, sourceValue ?? 0f);
-        }
-      }
-    }
+   
   }
 }

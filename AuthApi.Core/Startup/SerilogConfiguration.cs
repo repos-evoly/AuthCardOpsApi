@@ -16,7 +16,7 @@ namespace AuthApi.Core.Startup
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Environment", hostContext.HostingEnvironment.EnvironmentName)
             .WriteTo.File(
-              path: "c:\\kyc\\logs\\log-.txt",
+              path: "c:\\Auth\\logs\\log-.txt",
               outputTemplate: "---> {Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{level:u3}] {Message:1j}{Newline}",
               rollingInterval: RollingInterval.Day,
               restrictedToMinimumLevel: LogEventLevel.Information

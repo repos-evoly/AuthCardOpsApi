@@ -15,8 +15,7 @@ namespace AuthApi.Data.Context
         
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
-        public DbSet<Customer> Customers => Set<Customer>();
-        public DbSet<Employee> Employees => Set<Employee>();
+   
         public DbSet<UserSecurity> UserSecurities => Set<UserSecurity>();
         public DbSet<Settings> Settings => Set<Settings>();
 
@@ -33,8 +32,7 @@ namespace AuthApi.Data.Context
             base.OnModelCreating(builder);
 
             builder.Entity<User>().HasIndex(u => u.Email).IsUnique().HasDatabaseName("Unique_Email");
-            builder.Entity<Customer>().HasIndex(c => c.CustomerId).IsUnique().HasDatabaseName("Unique_CustomerId");
-            builder.Entity<Employee>().HasIndex(e => e.EmployeeCode).IsUnique().HasDatabaseName("Unique_EmployeeCode");
+           
 
             builder.Entity<User>()
                 .HasOne(u => u.Role)
@@ -47,20 +45,6 @@ namespace AuthApi.Data.Context
                 .WithOne(us => us.User)
                 .HasForeignKey<UserSecurity>(us => us.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            builder.Entity<User>()
-                .HasOne(u => u.Customer)
-                .WithOne(c => c.User)
-                .HasForeignKey<Customer>(c => c.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            
-            builder.Entity<User>()
-                .HasOne(u => u.Employee)
-                .WithOne(e => e.User)
-                .HasForeignKey<Employee>(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             
             builder.Entity<UserSecurity>().HasIndex(us => us.TwoFactorSecretKey).IsUnique();
 

@@ -14,7 +14,7 @@ namespace AuthApi.Core.Startup
         {
           c.RoutePrefix = string.Empty;
           string swaggerJsonBasePath = string.IsNullOrWhiteSpace(c.RoutePrefix) ? "." : "..";
-          c.SwaggerEndpoint($"{swaggerJsonBasePath}/swagger/v1/swagger.json", "KYC API");
+          c.SwaggerEndpoint($"{swaggerJsonBasePath}/swagger/v1/swagger.json", "Auth API");
         });
       }
       return app;

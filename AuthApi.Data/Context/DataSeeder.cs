@@ -21,8 +21,6 @@ namespace AuthApi.Data.Seeding
         {
             SeedRoles();
             SeedAdminUser();
-            SeedCustomers();
-            SeedEmployees();
         }
 
         #region Role Seeding
@@ -66,79 +64,7 @@ namespace AuthApi.Data.Seeding
         }
         #endregion
 
-        #region Customer Seeding
-        private void SeedCustomers()
-        {
-            if (!_context.Customers.Any())
-            {
-                var customerRole = _context.Roles.FirstOrDefault(r => r.TitleLT == "Customer")?.Id ?? 2;
-
-                var user = new User
-                {
-                    FullNameAR = "John Doe",
-                    FullNameLT = "John Doe",
-                    Email = "john.doe@example.com",
-                    Password = BCrypt.Net.BCrypt.HashPassword("Password123"),
-                    Active = true,
-                    RoleId = customerRole
-                };
-
-                _context.Users.Add(user);
-                _context.SaveChanges();
-
-                var customer = new Customer
-                {
-                    CustomerId = "CUST001",
-                    UserId = user.Id,
-                    NationalId = "123456789",
-                    BirthDate = new DateTime(1990, 5, 15),
-                    Address = "123 Main Street",
-                    Phone = "+1234567890",
-                    KycStatus = "Pending"
-                };
-
-                _context.Customers.Add(customer);
-                _context.SaveChanges();
-            }
-        }
-        #endregion
-
-        #region Employee Seeding
-        private void SeedEmployees()
-        {
-            if (!_context.Employees.Any())
-            {
-                var employeeRole = _context.Roles.FirstOrDefault(r => r.TitleLT == "Employee")?.Id ?? 3;
-
-                var user = new User
-                {
-                    FullNameAR = "Alice Smith",
-                    FullNameLT = "Alice Smith",
-                    Email = "alice.smith@example.com",
-                    Password = BCrypt.Net.BCrypt.HashPassword("Password123"),
-                    Active = true,
-                    RoleId = employeeRole
-                };
-
-                _context.Users.Add(user);
-                _context.SaveChanges();
-
-                var employee = new Employee
-                {
-                    EmployeeCode = "EMP001",
-                    UserId = user.Id,
-                    Department = "IT",
-                    Position = "Software Engineer",
-                    Phone = "+1987654321",
-                    Email = "alice.smith@example.com",
-                    Active = true
-                };
-
-                _context.Employees.Add(employee);
-                _context.SaveChanges();
-            }
-        }
-        #endregion
+        
 
         #region Public Method to Run Seeder
         public static void Initialize(IServiceProvider serviceProvider)

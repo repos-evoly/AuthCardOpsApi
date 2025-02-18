@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthApi.Data.Models
 {
+    //ask mr ismat wath fields do we need in this table and if these fields will be variable and change based on projects or common between all projects
     [Table("Users")]
     [Index(nameof(Email), IsUnique = true, Name = "Unique_Email")]
     public class User : Auditable
@@ -40,7 +41,6 @@ namespace AuthApi.Data.Models
 
         public UserSecurity UserSecurity { get; set; }
 
-        public Customer Customer { get; set; }  // Null if Employee
-        public Employee Employee { get; set; }  // Null if Customer
+
     }
 }

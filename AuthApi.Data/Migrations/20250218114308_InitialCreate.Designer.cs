@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AuthApi.Data.Migrations
 {
     [DbContext(typeof(AuthApiDbContext))]
-    [Migration("20250212092344_AddSettingsTable")]
-    partial class AddSettingsTable
+    [Migration("20250218114308_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,111 +24,6 @@ namespace AuthApi.Data.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("AuthApi.Data.Models.Customer", b =>
-                {
-                    b.Property<string>("CustomerId")
-                        .HasMaxLength(8)
-                        .HasColumnType("nvarchar(8)");
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<DateTime?>("BirthDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("KycStatus")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NationalId")
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("CustomerId");
-
-                    b.HasIndex("CustomerId")
-                        .IsUnique()
-                        .HasDatabaseName("Unique_CustomerId");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.HasIndex(new[] { "CustomerId" }, "Unique_CustomerId")
-                        .IsUnique();
-
-                    b.ToTable("Customers");
-                });
-
-            modelBuilder.Entity("AuthApi.Data.Models.Employee", b =>
-                {
-                    b.Property<int>("EmployeeId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("EmployeeId"));
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Department")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<string>("EmployeeCode")
-                        .HasMaxLength(25)
-                        .HasColumnType("nvarchar(25)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<string>("Position")
-                        .HasMaxLength(225)
-                        .HasColumnType("nvarchar(225)");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("EmployeeId");
-
-                    b.HasIndex("EmployeeCode")
-                        .IsUnique()
-                        .HasDatabaseName("Unique_EmployeeCode")
-                        .HasFilter("[EmployeeCode] IS NOT NULL");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.HasIndex(new[] { "EmployeeCode" }, "Unique_EmployeeCode")
-                        .IsUnique()
-                        .HasFilter("[EmployeeCode] IS NOT NULL");
-
-                    b.ToTable("Employees");
-                });
 
             modelBuilder.Entity("AuthApi.Data.Models.Role", b =>
                 {
@@ -176,6 +71,12 @@ namespace AuthApi.Data.Migrations
 
                     b.Property<bool>("IsTwoFactorAuthEnabled")
                         .HasColumnType("bit");
+
+                    b.Property<string>("RecaptchaSecretKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RecaptchaSiteKey")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
@@ -272,6 +173,12 @@ namespace AuthApi.Data.Migrations
                     b.Property<string>("QrCodePath")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RefreshTokenExpiry")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("TwoFactorSecretKey")
                         .HasColumnType("nvarchar(450)");
 
@@ -288,28 +195,6 @@ namespace AuthApi.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("UserSecurity");
-                });
-
-            modelBuilder.Entity("AuthApi.Data.Models.Customer", b =>
-                {
-                    b.HasOne("AuthApi.Data.Models.User", "User")
-                        .WithOne("Customer")
-                        .HasForeignKey("AuthApi.Data.Models.Customer", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("AuthApi.Data.Models.Employee", b =>
-                {
-                    b.HasOne("AuthApi.Data.Models.User", "User")
-                        .WithOne("Employee")
-                        .HasForeignKey("AuthApi.Data.Models.Employee", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AuthApi.Data.Models.User", b =>
@@ -341,10 +226,6 @@ namespace AuthApi.Data.Migrations
 
             modelBuilder.Entity("AuthApi.Data.Models.User", b =>
                 {
-                    b.Navigation("Customer");
-
-                    b.Navigation("Employee");
-
                     b.Navigation("UserSecurity");
                 });
 #pragma warning restore 612, 618

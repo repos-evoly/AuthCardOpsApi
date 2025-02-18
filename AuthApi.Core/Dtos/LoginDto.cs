@@ -9,6 +9,8 @@ namespace AuthApi.Core.Dtos
 
         [Required]
         public string Password { get; set; }
+
+        public string RecaptchaToken { get; set; }
     }
 }
  

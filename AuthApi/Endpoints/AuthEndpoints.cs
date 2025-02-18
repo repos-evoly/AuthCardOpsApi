@@ -27,6 +27,8 @@ namespace AuthApi.Endpoints
             auth.MapPost("/verify-2fa", VerifyTwoFactorAuthentication);
             auth.MapPost("/forgot-password", ForgotPassword);
             auth.MapPost("/reset-password", ResetPassword);
+            auth.MapPost("/refresh-token", RefreshToken);
+            auth.MapPost("/logout", Logout);
         }
 
         /// <summary> User Registration </summary>
@@ -59,7 +61,7 @@ namespace AuthApi.Endpoints
 
         /// <summary> Login with JWT </summary>
         /// Ask Mr ismat about Login and 2fa logic cases like if settings table has 2fa off but user has enabled 2fa will it ask him?? if settings has 2fa on it should force all users to enable 2fa? 
-        public static async Task<IResult> Login( AuthApiDbContext db,  IConfiguration config, HttpContext httpContext,  LoginDto loginDto)
+       public static async Task<IResult> Login(AuthApiDbContext db, IConfiguration config, HttpContext httpContext, LoginDto loginDto)
         {
             var jwtSection = config.GetSection("Jwt");
 
@@ -74,26 +76,39 @@ namespace AuthApi.Endpoints
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.Password))
                 return TypedResults.NotFound("Invalid Credentials!");
 
-            if (user.Role == null)
-                return TypedResults.BadRequest("User does not have a role assigned!");
+            var settings = await db.Settings.FirstOrDefaultAsync();
+            bool isGlobal2FAEnabled = settings?.IsTwoFactorAuthEnabled ?? false;
 
-            if (user.UserSecurity?.IsTwoFactorEnabled == true)
-                return TypedResults.Ok(new { RequiresTwoFactor = true });
-
-            var token = GenerateJwtToken(user, config);
-
-            //as mr ismat if what is under this is needed
-            httpContext.Response.Cookies.Append("authToken", token, new CookieOptions
+            // 🔹 If 2FA is required globally and the user has it enabled, return "RequiresTwoFactor"
+            if (isGlobal2FAEnabled)
             {
-                Expires = DateTime.UtcNow.AddDays(7),
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict
-            });
-            //ask mr ismat what to return, token , encrypted profile, ....
-            return TypedResults.Ok(token);
+                if (user.UserSecurity == null || !user.UserSecurity.IsTwoFactorEnabled)
+                {
+                    return TypedResults.Ok("Two-Factor Authentication is required. Please enable 2FA to proceed.");
+                }
 
+                return TypedResults.Ok(new { RequiresTwoFactor = true });
+            }
+
+            
+            var accessToken = GenerateJwtToken(user, config);
+            var refreshToken = GenerateRefreshToken();
+
+            
+            user.UserSecurity ??= new UserSecurity { UserId = user.Id };
+            user.UserSecurity.RefreshToken = refreshToken;
+            user.UserSecurity.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+
+            await db.SaveChangesAsync();
+
+            return TypedResults.Ok(new 
+            { 
+                AccessToken = accessToken,
+                RefreshToken = refreshToken 
+            });
         }
+
+
 
 
 
@@ -203,6 +218,28 @@ namespace AuthApi.Endpoints
             return TypedResults.Ok("Password reset successful.");
         }
 
+        public static async Task<IResult> Logout(AuthApiDbContext db, HttpContext httpContext)
+        {
+            if (!httpContext.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+                return TypedResults.BadRequest("Refresh token is missing");
+
+            var user = await db.Users.Include(u => u.UserSecurity)
+                .FirstOrDefaultAsync(u => u.UserSecurity!.RefreshToken == refreshToken);
+
+            if (user != null)
+            {
+                user.UserSecurity.RefreshToken = null;
+                user.UserSecurity.RefreshTokenExpiry = null;
+                await db.SaveChangesAsync();
+            }
+
+            httpContext.Response.Cookies.Delete("authToken");
+            httpContext.Response.Cookies.Delete("refreshToken");
+
+            return TypedResults.Ok("Logged out successfully.");
+        }
+
+
         private static string GenerateJwtToken(User user, IConfiguration config)
         {
 
@@ -236,6 +273,45 @@ namespace AuthApi.Endpoints
             return tokenHandler.WriteToken(token);
         }
 
+        public static async Task<IResult> RefreshToken(AuthApiDbContext db, IConfiguration config, HttpContext httpContext)
+        {
+            if (!httpContext.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+                return TypedResults.BadRequest("Refresh token is missing");
+
+            var user = await db.Users.Include(u => u.UserSecurity)
+                .FirstOrDefaultAsync(u => u.UserSecurity!.RefreshToken == refreshToken &&
+                                        u.UserSecurity.RefreshTokenExpiry > DateTime.UtcNow);
+
+            if (user == null)
+                return TypedResults.Unauthorized();
+
+            var newAccessToken = GenerateJwtToken(user, config);
+            var newRefreshToken = GenerateRefreshToken();
+
+            user.UserSecurity.RefreshToken = newRefreshToken;
+            user.UserSecurity.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+            await db.SaveChangesAsync();
+
+            httpContext.Response.Cookies.Append("authToken", newAccessToken, new CookieOptions
+            {
+                Expires = DateTime.UtcNow.AddMinutes(30),
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
+
+            httpContext.Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
+            {
+                Expires = DateTime.UtcNow.AddDays(7),
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict
+            });
+
+            return TypedResults.Ok(new { AccessToken = newAccessToken, RefreshToken = newRefreshToken });
+        }
+
+
 
         private static bool VerifyOtp(string otp, string secretKey)
         {
@@ -261,6 +337,45 @@ namespace AuthApi.Endpoints
             }
         }
 
-        
+        private static async Task<bool> VerifyRecaptcha(string secretKey, string recaptchaToken)
+        {
+            using var client = new HttpClient();
+            var response = await client.PostAsync(
+                $"https://www.google.com/recaptcha/api/siteverify?secret={secretKey}&response={recaptchaToken}",
+                null);
+
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            var result = System.Text.Json.JsonSerializer.Deserialize<RecaptchaResponse>(jsonResponse);
+            return result?.Success ?? false;
+        }
+
+        private class RecaptchaResponse
+        {
+            public bool Success { get; set; }
+            public double Score { get; set; }
+            public string Action { get; set; }
+            public string[] ErrorCodes { get; set; }
+        }
+
+        public static async Task<IResult> GetRecaptchaSettings(AuthApiDbContext db)
+        {
+            var settings = await db.Settings.FirstOrDefaultAsync();
+            return settings != null
+                ? TypedResults.Ok(new { SiteKey = settings.RecaptchaSiteKey })
+                : TypedResults.NotFound("No settings found.");
+        }
+
+      
+
+        private static string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[32];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
+        }
+
+
+
     }
 }

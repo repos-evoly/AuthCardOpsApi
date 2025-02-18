@@ -23,7 +23,7 @@ AuthApi -> /Users/ismatayash/Projects/ContactCenter/AuthApiProjects/AuthApi/bin/
 The folder Attachments must exist on the AuthApi folder on IIS and Modify permission should be given to it for the IISUSERS user
 
 Logs
-Log file logged daily and saved on the server under C:/kyc/logs delete from time to time
+Log file logged daily and saved on the server under C:/Auth/logs delete from time to time
 
 Repository Folder in the Core project
 It is not used and may be deleted only kept as a sample on how to write Generic Repos and unit of work.

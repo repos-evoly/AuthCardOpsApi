@@ -70,10 +70,10 @@ namespace AuthApi.Core.Startup
                     builder =>
                     {
                       builder.WithOrigins("http://localhost:3000",
-                                          "http://localhost:2727",
-                                          "http://10.3.3.11:2727",
-                                          "http://localhost:4000",
-                                          "http://10.1.1.205:4000")
+                                          "http://localhost:3010",
+                                          "http://10.3.3.11:3010",
+                                          "http://localhost:5000",
+                                          "http://10.1.1.205:3010")
                              .AllowAnyHeader()
                              .AllowAnyMethod()
                              .AllowCredentials();
@@ -87,7 +87,7 @@ namespace AuthApi.Core.Startup
       auth.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
       .AddCookie(options =>
       {
-        options.Cookie.Name = "kycToken";
+        options.Cookie.Name = "AuthToken";
       })
       .AddJwtBearer(options =>
             {
@@ -107,9 +107,9 @@ namespace AuthApi.Core.Startup
               {
                 OnMessageReceived = context =>
                 {
-                  if (context.Request.Cookies.ContainsKey("kycToken"))
+                  if (context.Request.Cookies.ContainsKey("AuthToken"))
                   {
-                    context.Token = context.Request.Cookies["kycToken"];
+                    context.Token = context.Request.Cookies["AuthToken"];
                   }
                   return Task.CompletedTask;
                 },
@@ -149,10 +149,6 @@ namespace AuthApi.Core.Startup
     public static IServiceCollection RegisterValidators(this IServiceCollection validators)
     {
 
-      // validates Team, JobTitle and Ref1
-     
-      validators.AddScoped<IValidator<EditCustomerDto>, CustomerValidator>();
-      
      
 
       return validators;
