@@ -12,9 +12,9 @@ namespace AuthApi.Data.Models
         public int Id { get; set; }
 
         [MaxLength(100)]
-        public string TitleAR { get; set; }
+        public string? TitleAR { get; set; }  
         [Required]
-        public string TitleLT { get; set; }
-        public ICollection<User> Users { get; set; }
+        public string TitleLT { get; set; } = string.Empty;  
+        public ICollection<User>? Users { get; set; } = new List<User>(); 
     }
 }

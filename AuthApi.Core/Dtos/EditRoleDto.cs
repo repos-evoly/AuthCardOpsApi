@@ -6,7 +6,7 @@ namespace AuthApi.Core.Dtos
     {
         [Required]
         [MaxLength(50)]
-        public string TitleAR { get; set; }
-        public string TitleLT { get; set; }
+        public string? TitleAR { get; set; }
+        public string? TitleLT { get; set; }
     }
 }

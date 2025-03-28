@@ -1,24 +1,35 @@
 namespace AuthApi.Core.Dtos
 {
 
-  public class EditUserDto
-  {
-    public string FullNameAR { get; set; }
-    public string FullNameLT { get; set; }
-    public string Email { get; set; }
-    public string Password { get; set; }
-    public string Image { get; set; }
-    public bool Active { get; set; }
-    public string RoleId { get; set; }
-    public string BranchId { get; set; }
-    public string PasswordToken { get; set; }
-  }
-
-  public class UserDto : EditUserDto
+  public class UserDto
   {
     public int Id { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; }
+    public string? FullNameAR { get; set; }
+    public string? FullNameLT { get; set; }
+    public string? Email { get; set; }
+    public bool Active { get; set; }
+    public string? Role { get; set; }
+    public bool IsTwoFactorEnabled { get; set; }
+    public string? PasswordResetToken { get; set; }
   }
+
+  public class CreateUserDto
+  {
+    public required string FullNameAR { get; set; }
+    public required string FullNameLT { get; set; }
+    public required string Email { get; set; }
+    public required string Password { get; set; }
+    public bool Active { get; set; }
+    public int RoleId { get; set; }
+  }
+  public class EditUserDto
+  {
+    public required string FullNameAR { get; set; }
+    public required string FullNameLT { get; set; }
+    public required string Email { get; set; }
+    public bool Active { get; set; }
+    public int RoleId { get; set; }
+  }
+
 
 }

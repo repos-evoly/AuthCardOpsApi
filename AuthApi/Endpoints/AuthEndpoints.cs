@@ -28,28 +28,28 @@ namespace AuthApi.Endpoints
             auth.MapPost("/forgot-password", ForgotPassword);
             auth.MapPost("/reset-password", ResetPassword);
             auth.MapPost("/refresh-token", RefreshToken);
+            auth.MapPost("/verify-initial-2fa", VerifyInitialTwoFactorSetup);
             auth.MapPost("/logout", Logout);
         }
 
         /// <summary> User Registration </summary>
-       public static async Task<IResult> Register( AuthApiDbContext db, RegisterDto registerDto)
+        public static async Task<IResult> Register(AuthApiDbContext db, RegisterDto registerDto)
         {
             if (await db.Users.AnyAsync(u => u.Email == registerDto.Email))
-                return TypedResults.BadRequest("User already exists.");
+                return TypedResults.BadRequest(new { Message = "User already exists." });
 
             var hashedPassword = BCrypt.Net.BCrypt.HashPassword(registerDto.Password);
 
             var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == registerDto.RoleId);
-            if (role == null) return TypedResults.BadRequest("Invalid role. Please select a valid role.");
+            if (role == null) return TypedResults.BadRequest(new { Message = "Invalid role. Please select a valid role." });
 
             var user = new User
             {
-                FullNameAR = registerDto.FullNameAR,
-                FullNameLT = registerDto.FullNameLT,
                 Email = registerDto.Email,
                 Password = hashedPassword,
                 RoleId = role.Id,
-                Active = true
+                Active = true,
+                UserSecurity = new UserSecurity()
             };
 
             db.Users.Add(user);
@@ -61,7 +61,7 @@ namespace AuthApi.Endpoints
 
         /// <summary> Login with JWT </summary>
         /// Ask Mr ismat about Login and 2fa logic cases like if settings table has 2fa off but user has enabled 2fa will it ask him?? if settings has 2fa on it should force all users to enable 2fa? 
-       public static async Task<IResult> Login(AuthApiDbContext db, IConfiguration config, HttpContext httpContext, LoginDto loginDto)
+        public static async Task<IResult> Login(AuthApiDbContext db, IConfiguration config, HttpContext httpContext, LoginDto loginDto)
         {
             var jwtSection = config.GetSection("Jwt");
 
@@ -84,27 +84,30 @@ namespace AuthApi.Endpoints
             {
                 if (user.UserSecurity == null || !user.UserSecurity.IsTwoFactorEnabled)
                 {
-                    return TypedResults.Ok("Two-Factor Authentication is required. Please enable 2FA to proceed.");
+                    return TypedResults.Ok(new { RequiresTwoFactorEnable = true });
                 }
 
                 return TypedResults.Ok(new { RequiresTwoFactor = true });
             }
 
-            
-            var accessToken = GenerateJwtToken(user, config);
+
+            var accessToken = GenerateJwtTokenForAuthApi(user, config);
+            var kycToken = GenerateJwtTokenForKycApi(user, config);
             var refreshToken = GenerateRefreshToken();
 
-            
+
             user.UserSecurity ??= new UserSecurity { UserId = user.Id };
+            user.UserSecurity.LastLogin = DateTime.UtcNow;
             user.UserSecurity.RefreshToken = refreshToken;
             user.UserSecurity.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
 
             await db.SaveChangesAsync();
 
-            return TypedResults.Ok(new 
-            { 
+            return TypedResults.Ok(new
+            {
                 AccessToken = accessToken,
-                RefreshToken = refreshToken 
+                RefreshToken = refreshToken,
+                KycToken = kycToken
             });
         }
 
@@ -114,10 +117,10 @@ namespace AuthApi.Endpoints
 
         /// <summary> Enable Google Authenticator 2FA </summary>
         /// <summary> Enable Google Authenticator 2FA and save QR code </summary>
-       public static async Task<IResult> EnableTwoFactorAuthentication(
-            AuthApiDbContext db, 
-            IQrCodeRepository qrCodeRepository, 
-            EnableTwoFactorDto dto)
+        public static async Task<IResult> EnableTwoFactorAuthentication(
+             AuthApiDbContext db,
+             IQrCodeRepository qrCodeRepository,
+             EnableTwoFactorDto dto)
         {
             var user = await db.Users.Include(u => u.UserSecurity)
                 .FirstOrDefaultAsync(u => u.Email == dto.Email);
@@ -125,11 +128,9 @@ namespace AuthApi.Endpoints
             if (user == null) return TypedResults.NotFound("User not found.");
 
             using var generator = RandomNumberGenerator.Create();
-            byte[] secretKeyBytes = KeyGeneration.GenerateRandomKey(20); 
-            string base32Secret = Base32Encoding.ToString(secretKeyBytes).TrimEnd('='); 
+            byte[] secretKeyBytes = KeyGeneration.GenerateRandomKey(20);
+            string base32Secret = Base32Encoding.ToString(secretKeyBytes).TrimEnd('=');
 
-
-            
             string qrCodeFileName = await qrCodeRepository.GenerateAndSaveQrCodeAsync(user.Email, base32Secret);
 
             if (user.UserSecurity == null)
@@ -137,8 +138,8 @@ namespace AuthApi.Endpoints
                 user.UserSecurity = new UserSecurity
                 {
                     UserId = user.Id,
-                    TwoFactorSecretKey = base32Secret, 
-                    IsTwoFactorEnabled = true,
+                    TwoFactorSecretKey = base32Secret,
+                    IsTwoFactorEnabled = false,  // 🚨 2FA is disabled until OTP is verified
                     PasswordResetToken = null,
                     PasswordResetTokenExpiry = null
                 };
@@ -147,7 +148,7 @@ namespace AuthApi.Endpoints
             else
             {
                 user.UserSecurity.TwoFactorSecretKey = base32Secret;
-                user.UserSecurity.IsTwoFactorEnabled = true;
+                user.UserSecurity.IsTwoFactorEnabled = false; // 🚨 2FA is disabled until OTP is verified
             }
 
             await db.SaveChangesAsync();
@@ -159,10 +160,54 @@ namespace AuthApi.Endpoints
             });
         }
 
+        public static async Task<IResult> VerifyInitialTwoFactorSetup(
+            AuthApiDbContext db,
+            IConfiguration config,
+            HttpContext httpContext,
+            VerifyTwoFactorDto dto)
+        {
+            var user = await db.Users.Include(u => u.UserSecurity)
+                .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
+            if (user == null || user.UserSecurity == null)
+                return TypedResults.BadRequest("User not found or 2FA not enabled.");
+
+            if (string.IsNullOrEmpty(user.UserSecurity.TwoFactorSecretKey))
+                return TypedResults.BadRequest("2FA secret key is missing.");
+
+            bool isValidOtp = VerifyOtp(dto.Token, user.UserSecurity.TwoFactorSecretKey);
+
+            if (!isValidOtp)
+                return TypedResults.BadRequest("Invalid OTP. Please scan and try again.");
+
+            // ✅ Enable 2FA for the user
+            user.UserSecurity.IsTwoFactorEnabled = true;
+
+            // ✅ Generate Tokens
+            var accessToken = GenerateJwtTokenForAuthApi(user, config);
+            var refreshToken = GenerateRefreshToken();
+
+            // ✅ Store Refresh Token
+            user.UserSecurity.RefreshToken = refreshToken;
+            user.UserSecurity.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+
+            await db.SaveChangesAsync();
+
+            // ✅ Return Tokens
+            return TypedResults.Ok(new
+            {
+                Message = "2FA setup successfully verified and enabled.",
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            });
+        }
 
         /// <summary> Verify Google Authenticator 2FA </summary>
-        public static async Task<IResult> VerifyTwoFactorAuthentication( AuthApiDbContext db,  IConfiguration config,  VerifyTwoFactorDto dto)
+        public static async Task<IResult> VerifyTwoFactorAuthentication(
+            AuthApiDbContext db,
+            IConfiguration config,
+            HttpContext httpContext,
+            VerifyTwoFactorDto dto)
         {
             var user = await db.Users.Include(u => u.UserSecurity)
                                     .FirstOrDefaultAsync(u => u.Email == dto.Email);
@@ -176,14 +221,29 @@ namespace AuthApi.Endpoints
             bool isValidOtp = VerifyOtp(dto.Token, user.UserSecurity.TwoFactorSecretKey);
 
             if (!isValidOtp)
-                return TypedResults.Unauthorized(); 
+                return TypedResults.BadRequest("Invalid OTP. Please try again.");
 
-            var token = GenerateJwtToken(user, config);
-            return TypedResults.Ok(new { Token = token });
+            var accessToken = GenerateJwtTokenForAuthApi(user, config);
+
+
+            var refreshToken = GenerateRefreshToken();
+
+            user.UserSecurity.RefreshToken = refreshToken;
+            user.UserSecurity.RefreshTokenExpiry = DateTime.UtcNow.AddDays(30);
+
+            await db.SaveChangesAsync();
+
+            return TypedResults.Ok(new
+            {
+                Message = "2FA verification successful.",
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            });
         }
 
+
         /// <summary> Forgot Password (Request Password Reset) </summary>
-        public static async Task<IResult> ForgotPassword( AuthApiDbContext db,  ForgotPasswordDto dto)
+        public static async Task<IResult> ForgotPassword(AuthApiDbContext db, ForgotPasswordDto dto)
         {
             var user = await db.Users.Include(u => u.UserSecurity).FirstOrDefaultAsync(u => u.Email == dto.Email);
             if (user == null) return TypedResults.NotFound("User not found.");
@@ -198,7 +258,7 @@ namespace AuthApi.Endpoints
         }
 
         /// <summary> Reset Password </summary>
-        public static async Task<IResult> ResetPassword( AuthApiDbContext db,  ResetPasswordDto dto)
+        public static async Task<IResult> ResetPassword(AuthApiDbContext db, ResetPasswordDto dto)
         {
             var user = await db.Users.Include(u => u.UserSecurity)
                 .FirstOrDefaultAsync(u => u.UserSecurity.PasswordResetToken == dto.PasswordToken &&
@@ -230,6 +290,7 @@ namespace AuthApi.Endpoints
             {
                 user.UserSecurity.RefreshToken = null;
                 user.UserSecurity.RefreshTokenExpiry = null;
+                user.UserSecurity.LastLogout = DateTime.UtcNow;
                 await db.SaveChangesAsync();
             }
 
@@ -240,25 +301,21 @@ namespace AuthApi.Endpoints
         }
 
 
-        private static string GenerateJwtToken(User user, IConfiguration config)
+        private static string GenerateJwtTokenForAuthApi(User user, IConfiguration config)
         {
-
             var jwtSection = config.GetSection("Jwt");
-            var key = Encoding.UTF8.GetBytes(jwtSection["Key"]);
+            var keyString = jwtSection["Key"] ?? throw new InvalidOperationException("JWT Key is missing in configuration.");
+            var key = Encoding.UTF8.GetBytes(keyString);
             var tokenHandler = new JwtSecurityTokenHandler();
 
-            //ask mr ismat what to include in token 
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Name, user.FullNameAR),
-                new Claim(ClaimTypes.GivenName, user.FullNameLT),
-                new Claim(ClaimTypes.Uri, user.Image ?? ""),
-                new Claim(ClaimTypes.Role, user.Role?.TitleLT ?? "Unassigned"),
-                new Claim(ClaimTypes.GroupSid, user.BranchId ?? ""),
-                new Claim(ClaimTypes.Sid, user.Id.ToString())
-            };
+        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role?.TitleLT ?? "Unassigned"),
+        new Claim(ClaimTypes.GroupSid, user.BranchId ?? ""),
+        new Claim(ClaimTypes.Sid, user.Id.ToString())
+    };
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -273,6 +330,45 @@ namespace AuthApi.Endpoints
             return tokenHandler.WriteToken(token);
         }
 
+        private static string GenerateJwtTokenForKycApi(User user, IConfiguration config)
+        {
+            var jwtSection = config.GetSection("Jwt");
+            var keyString = jwtSection["Key"] ?? throw new InvalidOperationException("JWT Key is missing in configuration.");
+            var key = Encoding.UTF8.GetBytes(keyString);
+            var tokenHandler = new JwtSecurityTokenHandler();
+
+            // KYC-specific claims (matching the structure you need)
+            var claims = new[]
+                {
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier", "ismat.ayash@gmail.com"),
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", "ismat.ayash@gmail.com"),
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", "arabic´"),  // FullNameAR
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname", "Ismat Ayash Staging"),  // FullNameLT
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/uri", ""),
+                    new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "SuperAdmin"),
+                    new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid", "0011"),
+                    new Claim("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/sid", "4"),
+                    new Claim("nbf", "1742372867"),  // Example NBF timestamp (Unix time)
+                    new Claim("exp", "1742977667"),  // Example EXP timestamp (Unix time)
+                    new Claim("iss", "http://localhost:5000/"),
+                    new Claim("aud", "http://localhost:5000/")
+                };
+
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddDays(7),
+                Issuer = jwtSection["Issuer"],
+                Audience = jwtSection["Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+
+
         public static async Task<IResult> RefreshToken(AuthApiDbContext db, IConfiguration config, HttpContext httpContext)
         {
             if (!httpContext.Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
@@ -285,7 +381,7 @@ namespace AuthApi.Endpoints
             if (user == null)
                 return TypedResults.Unauthorized();
 
-            var newAccessToken = GenerateJwtToken(user, config);
+            var newAccessToken = GenerateJwtTokenForAuthApi(user, config);
             var newRefreshToken = GenerateRefreshToken();
 
             user.UserSecurity.RefreshToken = newRefreshToken;
@@ -317,7 +413,7 @@ namespace AuthApi.Endpoints
         {
             try
             {
-               
+
                 byte[] keyBytes = Base32Encoding.ToBytes(secretKey);
 
                 var totp = new Totp(keyBytes, step: 30, totpSize: 6, mode: OtpHashMode.Sha1);
@@ -353,8 +449,8 @@ namespace AuthApi.Endpoints
         {
             public bool Success { get; set; }
             public double Score { get; set; }
-            public string Action { get; set; }
-            public string[] ErrorCodes { get; set; }
+            public string? Action { get; set; }
+            public string[]? ErrorCodes { get; set; }
         }
 
         public static async Task<IResult> GetRecaptchaSettings(AuthApiDbContext db)
@@ -365,7 +461,7 @@ namespace AuthApi.Endpoints
                 : TypedResults.NotFound("No settings found.");
         }
 
-      
+
 
         private static string GenerateRefreshToken()
         {

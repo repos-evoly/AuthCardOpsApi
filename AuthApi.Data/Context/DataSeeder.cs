@@ -30,9 +30,16 @@ namespace AuthApi.Data.Seeding
             {
                 var roles = new List<Role>
                 {
+                    new() { TitleLT = "SuperAdmin" },
                     new() { TitleLT = "Admin" },
-                    new() { TitleLT = "Customer" },
-                    new() { TitleLT = "Employee" }
+                    new() { TitleLT = "Manager" },
+                    new() { TitleLT = "AssistantManager" },
+                    new() { TitleLT = "DeputyManager" },
+                    new() { TitleLT = "Maker" },
+                    new() { TitleLT = "Checker" },
+                    new() { TitleLT = "Viewer" },
+                    new() { TitleLT = "Auditor" }
+
                 };
 
                 _context.Roles.AddRange(roles);
@@ -50,12 +57,11 @@ namespace AuthApi.Data.Seeding
 
                 var adminUser = new User
                 {
-                    FullNameAR = "Admin User",
-                    FullNameLT = "Admin User",
                     Email = "admin@example.com",
                     Password = BCrypt.Net.BCrypt.HashPassword("Admin@123"), // Hash the password
                     Active = true,
-                    RoleId = adminRole
+                    RoleId = adminRole,
+                    UserSecurity = new UserSecurity()
                 };
 
                 _context.Users.Add(adminUser);
@@ -64,7 +70,7 @@ namespace AuthApi.Data.Seeding
         }
         #endregion
 
-        
+
 
         #region Public Method to Run Seeder
         public static void Initialize(IServiceProvider serviceProvider)

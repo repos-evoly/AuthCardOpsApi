@@ -5,9 +5,9 @@ namespace AuthApi.Core.Dtos
     public class VerifyTwoFactorDto
     {
         [Required]
-        public string Email { get; set; }
+        public required string Email { get; set; }
 
         [Required]
-        public string Token { get; set; }
+        public required string Token { get; set; }
     }
 }

@@ -12,11 +12,11 @@ namespace AuthApi.Core.Repositories
 
     public Repository(AuthApiDbContext ctx)
     {
-      _ctx = ctx;
+      _ctx = ctx ?? throw new ArgumentNullException(nameof(ctx));
       _db = _ctx.Set<T>();
     }
 
-    public async Task<T> GetById(Expression<Func<T, bool>> expression = null, List<string> includes = null)
+    public async Task<T?> GetById(Expression<Func<T, bool>> expression, List<string>? includes = null)
     {
       IQueryable<T> query = _db;
       if (includes != null)
@@ -30,8 +30,8 @@ namespace AuthApi.Core.Repositories
       return await query.AsNoTracking().FirstOrDefaultAsync(expression);
     }
 
-    public async Task<IList<T>> GetAll(Expression<Func<T, bool>> expression = null,
-    Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null, List<string> includes = null)
+    public async Task<IList<T>> GetAll(Expression<Func<T, bool>>? expression = null,
+    Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null, List<string>? includes = null)
     {
       IQueryable<T> query = _db;
       if (expression != null)
@@ -52,41 +52,47 @@ namespace AuthApi.Core.Repositories
         query = orderBy(query);
       }
 
-      return await query.AsNoTracking().ToListAsync();
+      return await query.AsNoTracking().ToListAsync() ?? new List<T>();
     }
-
 
     public async Task Create(T entity)
     {
+      if (entity == null) throw new ArgumentNullException(nameof(entity));
       await _db.AddAsync(entity);
     }
 
     public async Task CreateRange(IEnumerable<T> entities)
     {
+      if (entities == null) throw new ArgumentNullException(nameof(entities));
       await _db.AddRangeAsync(entities);
     }
 
     public async Task Delete(int id)
     {
       var entity = await _db.FindAsync(id);
-      _db.Remove(entity);
+      if (entity != null)
+      {
+        _db.Remove(entity);
+      }
     }
 
     public void DeleteRange(IEnumerable<T> entities)
     {
+      if (entities == null) throw new ArgumentNullException(nameof(entities));
       _db.RemoveRange(entities);
     }
 
     public void Delete(T entity)
     {
+      if (entity == null) throw new ArgumentNullException(nameof(entity));
       _db.Remove(entity);
     }
 
     public void Update(T entity)
     {
+      if (entity == null) throw new ArgumentNullException(nameof(entity));
       _db.Attach(entity);
       _ctx.Entry(entity).State = EntityState.Modified;
     }
   }
-
 }

@@ -24,9 +24,9 @@ namespace AuthApi.Core.Startup
   {
     public static WebApplicationBuilder RegisterServices(this WebApplicationBuilder builder)
     {
-      var issuer = builder.Configuration["Jwt:Issuer"];
-      var audience = builder.Configuration["Jwt:Audience"];
-      var jwtKey = builder.Configuration["Jwt:Key"];
+      var issuer = builder.Configuration["Jwt:Issuer"] ?? throw new ArgumentNullException("Jwt:Issuer is missing in configuration.");
+      var audience = builder.Configuration["Jwt:Audience"] ?? throw new ArgumentNullException("Jwt:Audience is missing in configuration.");
+      var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key is missing in configuration.");
 
       builder.Services.RegisterCors();
       builder.Services.RegisterSwagger();
@@ -149,7 +149,7 @@ namespace AuthApi.Core.Startup
     public static IServiceCollection RegisterValidators(this IServiceCollection validators)
     {
 
-     
+
 
       return validators;
     }

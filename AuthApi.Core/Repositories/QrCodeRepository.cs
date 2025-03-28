@@ -46,7 +46,7 @@ namespace AuthApi.Core.Repositories
             string filePath = Path.Combine(_qrCodeDirectory, fileName);
 
             if (!File.Exists(filePath))
-                return null;
+                return Array.Empty<byte>(); 
 
             return await File.ReadAllBytesAsync(filePath);
         }

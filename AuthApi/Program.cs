@@ -18,7 +18,7 @@ if (args.Length == 1 && args[0].ToLower() == "seeddata") SeedData(app);
 
 app.ConfigureSwagger();
 app.ConfigureExceptionHandler();
-//app.ConfigureStaticFiles();
+app.ConfigureStaticFiles();
 
 app.UseCors("AllowSpecificOrigins");
 app.UseAuthorization();
@@ -30,9 +30,12 @@ app.Run();
 
 static void SeedData(IHost app)
 {
-  var scopedFactory = app.Services.GetService<IServiceScopeFactory>();
+    var scopedFactory = app.Services.GetService<IServiceScopeFactory>()
+        ?? throw new InvalidOperationException("ServiceScopeFactory not found.");
 
-  using var scope = scopedFactory.CreateScope();
-  var service = scope.ServiceProvider.GetService<DataSeeder>();
-  service.Seed();
+    using var scope = scopedFactory.CreateScope();
+    var service = scope.ServiceProvider.GetService<DataSeeder>()
+        ?? throw new InvalidOperationException("DataSeeder service not found.");
+
+    service.Seed();
 }

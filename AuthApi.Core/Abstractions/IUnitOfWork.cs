@@ -7,8 +7,7 @@ namespace AuthApi.Core.Abstractions
     IRepository<Role> Roles { get; }
     IRepository<User> Users { get; }
     IRepository<Settings> Settings { get; }
-
-
+  
     Task SaveAsync();
   }
 }

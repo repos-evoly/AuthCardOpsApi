@@ -9,12 +9,11 @@ namespace AuthApi.Data.Models
         [Key]
         public int Id { get; set; }
 
-        public bool IsTwoFactorAuthEnabled { get; set; } 
-        public bool IsRecaptchaEnabled { get; set; } 
-        public string RecaptchaSiteKey { get; set; }
-        public string RecaptchaSecretKey { get; set; }
-        public string Url {get; set;}
-        public string Date { get; set;}
+        public bool IsTwoFactorAuthEnabled { get; set; }
+        public bool IsRecaptchaEnabled { get; set; }
+        public string? RecaptchaSiteKey { get; set; }  // Nullable
+        public string? RecaptchaSecretKey { get; set; } // Nullable
+        public string? Url { get; set; } // Nullable
+        public string? Date { get; set; } // Nullable
     }
 }
-//ask mr ismat should settings table be key and value or the logic i used works

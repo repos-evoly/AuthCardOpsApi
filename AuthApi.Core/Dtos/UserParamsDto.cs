@@ -2,8 +2,8 @@ namespace AuthApi.Core.Dtos
 {
     public class EditUserParamsDto
     {
-        public string TitleAR { get; set; }
-        public string TitleLT { get; set; }
+        public string? TitleAR { get; set; }
+        public string? TitleLT { get; set; }
     }
 
     public class UserParamsDto : EditUserParamsDto

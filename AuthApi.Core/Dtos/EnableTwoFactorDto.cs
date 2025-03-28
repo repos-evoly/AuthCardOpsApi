@@ -5,7 +5,7 @@ namespace AuthApi.Core.Dtos
     public class EnableTwoFactorDto
     {
         [Required]
-        public string Email { get; set; }
+        public string? Email { get; set; }
     }
 }
  
