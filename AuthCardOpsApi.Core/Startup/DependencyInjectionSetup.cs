@@ -71,9 +71,11 @@ namespace AuthCardOpsApi.Core.Startup
                     {
                       builder.WithOrigins("http://localhost:3000",
                                           "http://localhost:3010",
-                                          "http://10.3.3.11:3010",
+                                          "http://10.1.1.205:3011",
+                                          "http://localhost:3011",
+                                          "http://10.3.3.11:3011",
                                           "http://localhost:5000",
-                                          "http://10.1.1.205:3010")
+                                          "http://10.1.1.205:3011")
                              .AllowAnyHeader()
                              .AllowAnyMethod()
                              .AllowCredentials();

@@ -21,8 +21,8 @@ app.ConfigureExceptionHandler();
 app.ConfigureStaticFiles();
 
 app.UseCors("AllowSpecificOrigins");
-app.UseAuthorization();
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.RegisterEndpoints();
 

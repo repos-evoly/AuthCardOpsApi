@@ -23,7 +23,7 @@ namespace AuthCardOpsApi.Data.Context
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseSqlServer("Server=DESKTOP-Q6SN24Q,1433;Database=AuthCardOpsDBUAT;User Id=ccadmin;Password=ccadmin;Trusted_Connection=False;MultipleActiveResultSets=true;TrustServerCertificate=True;");
+                optionsBuilder.UseSqlServer("Server=DESKTOP-Q6SN24Q,1433;Database=AuthCardOpsDB;User Id=ccadmin;Password=ccadmin;Trusted_Connection=False;MultipleActiveResultSets=true;TrustServerCertificate=True;");
             }
         }
 

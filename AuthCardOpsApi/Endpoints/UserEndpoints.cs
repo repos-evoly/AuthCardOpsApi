@@ -25,7 +25,7 @@ namespace AuthCardOpsApi.Endpoints
 
             users.MapPost("/", Create)
                 .WithName("CreateUser")
-                .Accepts<EditUserDto>("application/json")
+                .Accepts<CreateUserDto>("application/json")
                 .Produces<UserDto>(201)
                 .Produces(400);
 
@@ -34,6 +34,11 @@ namespace AuthCardOpsApi.Endpoints
                 .Accepts<EditUserDto>("application/json")
                 .Produces<UserDto>(200)
                 .Produces(400);
+
+            users.MapPatch("/{id:int}/toggle-active", ToggleActive)
+                .WithName("ToggleUserActive")
+                .Produces<UserDto>(200)
+                .Produces(404);
 
             users.MapDelete("/{id:int}", Delete)
                 .WithName("DeleteUser")
@@ -98,13 +103,25 @@ namespace AuthCardOpsApi.Endpoints
             await unitOfWork.Users.Create(user);
             await unitOfWork.SaveAsync();
 
-            return TypedResults.Created($"/api/users/{user.Id}", mapper.Map<UserDto>(user));
+            var createdDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Active = user.Active,
+                Role = null,
+                IsTwoFactorEnabled = user.UserSecurity?.IsTwoFactorEnabled ?? false,
+                PasswordResetToken = user.UserSecurity?.PasswordResetToken,
+                LastLogin = user.UserSecurity?.LastLogin,
+                LastLogout = user.UserSecurity?.LastLogout,
+            };
+
+            return TypedResults.Created($"/api/users/{user.Id}", createdDto);
         }
 
         [Authorize(Roles = "Admin")]
         public static async Task<IResult> Update([FromServices] IUnitOfWork unitOfWork, [FromServices] IMapper mapper, int id, [FromBody] EditUserDto userDto)
         {
-            var user = await unitOfWork.Users.GetById(u => u.Id == id, includes: new List<string> { "UserSecurity" });
+            var user = await unitOfWork.Users.GetById(u => u.Id == id, includes: new List<string> { "UserSecurity", "Role" });
             if (user == null) return TypedResults.NotFound("User not found.");
             user.Email = userDto.Email;
             user.Active = userDto.Active;
@@ -115,7 +132,19 @@ namespace AuthCardOpsApi.Endpoints
             unitOfWork.Users.Update(user);
             await unitOfWork.SaveAsync();
 
-            return TypedResults.Ok(mapper.Map<UserDto>(user));
+            var updatedDto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Active = user.Active,
+                Role = user.Role?.TitleLT,
+                IsTwoFactorEnabled = user.UserSecurity?.IsTwoFactorEnabled ?? false,
+                PasswordResetToken = user.UserSecurity?.PasswordResetToken,
+                LastLogin = user.UserSecurity?.LastLogin,
+                LastLogout = user.UserSecurity?.LastLogout,
+            };
+
+            return TypedResults.Ok(updatedDto);
         }
 
         [Authorize(Roles = "Admin")]
@@ -128,6 +157,31 @@ namespace AuthCardOpsApi.Endpoints
             await unitOfWork.SaveAsync();
 
             return TypedResults.NoContent();
+        }
+
+        [Authorize(Roles = "Admin")]
+        public static async Task<IResult> ToggleActive([FromServices] IUnitOfWork unitOfWork, [FromServices] IMapper mapper, int id)
+        {
+            var user = await unitOfWork.Users.GetById(u => u.Id == id, includes: new List<string> { "UserSecurity", "Role" });
+            if (user == null) return TypedResults.NotFound("User not found.");
+
+            user.Active = !user.Active;
+            unitOfWork.Users.Update(user);
+            await unitOfWork.SaveAsync();
+
+            var dto = new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Active = user.Active,
+                Role = user.Role?.TitleLT,
+                IsTwoFactorEnabled = user.UserSecurity?.IsTwoFactorEnabled ?? false,
+                PasswordResetToken = user.UserSecurity?.PasswordResetToken,
+                LastLogin = user.UserSecurity?.LastLogin,
+                LastLogout = user.UserSecurity?.LastLogout,
+            };
+
+            return TypedResults.Ok(dto);
         }
     }
 }

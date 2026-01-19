@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AuthCardOpsApi.Data.Migrations
 {
     [DbContext(typeof(AuthCardOpsApiDbContext))]
-    [Migration("20250408071304_InitialCreate")]
+    [Migration("20250428080516_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
